@@ -114,7 +114,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             detectedBluetoothDevices[value];
                       });
                       final bool connectionStatus = await bluetoothObdProvider
-                          .connectToDevice(selectedBluetoothDevice, context);
+                          .connectToDevice(selectedBluetoothDevice);
                       debugPrint('connection status $connectionStatus');
                       if (!connectionStatus && mounted) {
                         setState(() {

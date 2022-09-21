@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:bluetooth_obd2/enums.dart';
 import 'package:flutter_blue/flutter_blue.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 class BluetoothObd extends ChangeNotifier {
   /// creating an instance of [FlutterBlue]
@@ -30,7 +31,14 @@ class BluetoothObd extends ChangeNotifier {
 
   bool scanningBeginOnce = false;
 
-  List<String> commands = [commandsList[Factors.intakeTemperature]!, commandsList[Factors.engineLoad]!, commandsList[Factors.calculatedMaf]!, commandsList[Factors.rpm]!, commandsList[Factors.speed]!, commandsList[Factors.intakePressure]!];
+  List<String> commands = [
+    commandsList[Factors.intakeTemperature]!,
+    commandsList[Factors.engineLoad]!,
+    commandsList[Factors.calculatedMaf]!,
+    commandsList[Factors.rpm]!,
+    commandsList[Factors.speed]!,
+    commandsList[Factors.intakePressure]!
+  ];
 
   /// bluetooth characteristic for requesting and receiving data [this is the one which has the write as well as notify ability]
   BluetoothCharacteristic? requestCharacteristic;
@@ -99,8 +107,7 @@ class BluetoothObd extends ChangeNotifier {
   }
 
   /// function to connect to [selectedBluetoothDevice]
-  Future<bool> connectToDevice(
-      BluetoothDevice selectedBluetoothDevice, BuildContext context) async {
+  Future<bool> connectToDevice(BluetoothDevice selectedBluetoothDevice) async {
     Future<bool>? returnValue;
     String deviceDisplayName;
 
@@ -127,7 +134,15 @@ class BluetoothObd extends ChangeNotifier {
       ).then((value) {
         if (returnValue == null) {
           debugPrint('connection successful');
-          // TODO: display toast notifying successful connection
+          Fluttertoast.showToast(
+            msg: 'Connected successfully to $deviceDisplayName',
+            toastLength: Toast.LENGTH_SHORT,
+            gravity: ToastGravity.CENTER,
+            timeInSecForIosWeb: 1,
+            backgroundColor: Colors.red,
+            textColor: Colors.white,
+            fontSize: 16.0,
+          );
 
           _connectedDevice = selectedBluetoothDevice;
           discoverServices();
@@ -137,7 +152,15 @@ class BluetoothObd extends ChangeNotifier {
     } on PlatformException catch (e) {
       if (e.code == 'already connected') {
         debugPrint('already connected to $deviceDisplayName');
-        // TODO: display toast notifying connection status
+        Fluttertoast.showToast(
+          msg: 'Already connected to $deviceDisplayName',
+          toastLength: Toast.LENGTH_SHORT,
+          gravity: ToastGravity.CENTER,
+          timeInSecForIosWeb: 1,
+          backgroundColor: Colors.red,
+          textColor: Colors.white,
+          fontSize: 16.0,
+        );
 
         _connectedDevice = selectedBluetoothDevice;
         discoverServices();
@@ -147,7 +170,15 @@ class BluetoothObd extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint(e.toString());
-      // TODO: display toast notifying unsuccessful connection
+      Fluttertoast.showToast(
+        msg: 'Connection Unsuccessful',
+        toastLength: Toast.LENGTH_SHORT,
+        gravity: ToastGravity.CENTER,
+        timeInSecForIosWeb: 1,
+        backgroundColor: Colors.red,
+        textColor: Colors.white,
+        fontSize: 16.0,
+      );
     }
 
     return _connectedDevice == null ? false : true;
@@ -163,28 +194,31 @@ class BluetoothObd extends ChangeNotifier {
 
   void examineServicesForConnection() {
     if (examinedServiceCounter < totalServicesCounter) {
-      final BluetoothService currentExaminingBluetoothService = _services[examinedServiceCounter];
-      final List<BluetoothCharacteristic> currentExaminingBluetoothCharacteristicsArray = currentExaminingBluetoothService.characteristics;
+      final BluetoothService currentExaminingBluetoothService =
+          _services[examinedServiceCounter];
+      final List<BluetoothCharacteristic>
+          currentExaminingBluetoothCharacteristicsArray =
+          currentExaminingBluetoothService.characteristics;
 
       if (currentExaminingBluetoothCharacteristicsArray.isNotEmpty) {
         /// characteristics are present in service, so trying to identify the read and write characteristics
-        testReaderWriterCharacteristics(currentExaminingBluetoothCharacteristicsArray);
-      }
-      else {
+        testReaderWriterCharacteristics(
+            currentExaminingBluetoothCharacteristicsArray);
+      } else {
         /// characteristics are not present in service
         examinedServiceCounter++;
         examineServicesForConnection();
       }
-    }
-    else if (totalServicesCounter > 0 && examinedServiceCounter == totalServicesCounter) {
+    } else if (totalServicesCounter > 0 &&
+        examinedServiceCounter == totalServicesCounter) {
       debugPrint('device is not compatible for communication');
-    }
-    else {
+    } else {
       debugPrint('check required');
     }
   }
 
-  void testReaderWriterCharacteristics(List<BluetoothCharacteristic> examiningCharacteristics) {
+  void testReaderWriterCharacteristics(
+      List<BluetoothCharacteristic> examiningCharacteristics) {
     for (BluetoothCharacteristic characteristic in examiningCharacteristics) {
       if (characteristic.properties.notify) {
         testReader = characteristic;
@@ -196,8 +230,7 @@ class BluetoothObd extends ChangeNotifier {
       if (testReader != null && testWriter != null) {
         /// start writing test command
         performDeviceConnectionTest();
-      }
-      else {
+      } else {
         examinedServiceCounter++;
         examineServicesForConnection();
       }
@@ -218,6 +251,7 @@ class BluetoothObd extends ChangeNotifier {
         debugPrint("device is compatible");
         //stop the test scanning and continue to actual scan.
         testReader?.setNotifyValue(false);
+
         /// disconnecting the connected device for actual scanning
         disconnectDevice();
         _rxReadCharacteristic = testReader!;
@@ -237,7 +271,7 @@ class BluetoothObd extends ChangeNotifier {
   /// parse the value received from obd2 using the conversion formula
   void _parseValueReceived(List<int> response, String command) {
     num res = 0;
-    
+
     debugPrint(response.toString());
 
     // parse intake temperature
@@ -264,7 +298,7 @@ class BluetoothObd extends ChangeNotifier {
     else if (command == commandsList[Factors.intakePressure]) {
       res = response[0];
     }
-    
+
     debugPrint('$command = $res');
   }
 
@@ -277,8 +311,7 @@ class BluetoothObd extends ChangeNotifier {
       if (response.isNotEmpty) {
         commandsExecutedCounter++;
         _writeCommandsToDevice();
-      }
-      else {
+      } else {
         debugPrint('commands response received is empty');
       }
     });
@@ -289,12 +322,10 @@ class BluetoothObd extends ChangeNotifier {
       String currentCommand = commands[commandsExecutedCounter];
       List<int> convertedCommand = utf8.encode(currentCommand);
       await _rxWriteCharacteristic.write(convertedCommand);
-    }
-    else if (commandsExecutedCounter == commands.length) {
+    } else if (commandsExecutedCounter == commands.length) {
       debugPrint('Scan is completed');
       // TODO: call a function to return all the values of the parsed factors
-    }
-    else {
+    } else {
       debugPrint('some error occurred');
     }
   }
